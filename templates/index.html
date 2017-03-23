@@ -1,0 +1,32 @@
+{{define "title"}}<title>Redis Demo</title>{{end}}
+{{define "body"}}
+<div class="container content">
+	<div class="row">
+		<div class="col-lg-9">
+			<div class="page-header">
+				<h1>MyRedis Test</h1>
+				<div class="actions rAlign">
+					<a href="/key-values/new" >New Key Value</a>
+				</div> <!-- page-header -->
+			</div>
+			<div class="posts">
+					{{range $idx, $keyvalue := . }}
+						<div class="post">
+							<div class="title">
+								<h4>Key {{$keyvalue.Key}}</h4>
+							</div>
+							<div class="post-body">
+								{{$keyvalue.Value}}
+							</div>
+							<div class="post-footer">
+								<span class="timestamps">
+								</span>
+							</div>
+		     		</div>
+					{{end}}
+				</table>
+			</div> <!-- post -->
+		</div> <!-- col-lg-9 -->
+	</div><!--/row-->
+</div> <!-- /container -->
+{{end}}
