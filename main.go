@@ -13,14 +13,16 @@ import (
 	"github.com/go-redis/redis"
 )
 
+type RedisCredentials struct {
+	Host     string `json:"host"`
+	Password string `json:"password"`
+	Port     int    `json:"port"`
+}
+
 // struct for reading env
 type VCAPServices struct {
 	Redis []struct {
-		Credentials struct {
-			Host     string `json:"host"`
-			Password string `json:"password"`
-			Port     int    `json:"port"`
-		} `json:"credentials"`
+		Credentials RedisCredentials `json:"credentials"`
 	} `json:"a9s-redis32"`
 }
 
@@ -41,12 +43,6 @@ func initTemplates() {
 	templates["new"] = template.Must(template.ParseFiles("templates/new.html", "templates/base.html"))
 }
 
-type RedisCredentials struct {
-	Host     string
-	Password string
-	Port     int
-}
-
 func fetchCredentials() (RedisCredentials, error) {
 	// no new read of the env var, the reason is the receiver loop
 	var s VCAPServices
@@ -56,11 +52,7 @@ func fetchCredentials() (RedisCredentials, error) {
 		return RedisCredentials{}, err
 	}
 
-	return RedisCredentials{
-		Host:     s.Redis[0].Credentials.Host,
-		Password: s.Redis[0].Credentials.Password,
-		Port:     s.Redis[0].Credentials.Port,
-	}, nil
+	return s.Redis[0].Credentials, nil
 }
 
 func renderTemplate(w http.ResponseWriter, name string, template string, viewModel interface{}) {
