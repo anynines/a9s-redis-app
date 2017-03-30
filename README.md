@@ -4,6 +4,8 @@ This is a sample app to check whether the Redis service is working or not.
 
 ## Install, push and bind
 
+Make sure you installed GO on your machine, [download this](https://golang.org/doc/install?download=go1.8.darwin-amd64.pkg) for mac.
+
 Download the application
 ```
 $ go get github.com/anynines/a9s-redis-app
@@ -25,9 +27,9 @@ Bind the app
 $ cf bind-service redis-app myredis
 ```
 
-And restage
+And start
 ```
-$ cf restage redis-app
+$ cf start redis-app
 ```
 
 At last check the created url...
