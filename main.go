@@ -95,10 +95,15 @@ func createKeyValue(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to create connection: %v", err)
 		return
 	}
-	err = client.Set(key, value, 0).Err()
-	if err != nil {
-		log.Printf("Failed to set key %v and value %v ; err = %v", key, value, err)
-		return
+
+	var i = 0;
+	for i <= 10000 {
+		err = client.Set(fmt.Sprintf("%s-%d", key, i), fmt.Sprintf("%s-%d", value, i), 0).Err()
+		if err != nil {
+			log.Printf("Failed to set key %v and value %v ; err = %v", key, value, err)
+			return
+		}
+		i += 1;
 	}
 }
 

@@ -6,3 +6,5 @@ applications:
   buildpack: https://github.com/cloudfoundry/go-buildpack
   env:
     GOPACKAGENAME : redis-app
+  services:
+    - redis-service
