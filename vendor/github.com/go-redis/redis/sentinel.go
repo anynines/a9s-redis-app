@@ -2,7 +2,6 @@ package redis
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -24,6 +23,8 @@ type FailoverOptions struct {
 
 	// Following options are copied from Options struct.
 
+	OnConnect func(*Conn) error
+
 	Password string
 	DB       int
 
@@ -42,6 +43,8 @@ type FailoverOptions struct {
 func (opt *FailoverOptions) options() *Options {
 	return &Options{
 		Addr: "FailoverClient",
+
+		OnConnect: opt.OnConnect,
 
 		DB:       opt.DB,
 		Password: opt.Password,
@@ -83,7 +86,7 @@ func NewFailoverClient(failoverOpt *FailoverOptions) *Client {
 			},
 		},
 	}
-	client.cmdable.process = client.Process
+	client.setProcessor(client.Process)
 
 	return &client
 }
@@ -111,7 +114,7 @@ func (c *sentinelClient) PubSub() *PubSub {
 	return &PubSub{
 		base: baseClient{
 			opt:      c.opt,
-			connPool: pool.NewStickyConnPool(c.connPool.(*pool.ConnPool), false),
+			connPool: c.connPool,
 		},
 	}
 }
@@ -268,12 +271,11 @@ func (d *sentinelFailover) closeOldConns(newMaster string) {
 			break
 		}
 		if cn.RemoteAddr().String() != newMaster {
-			err := fmt.Errorf(
+			internal.Logf(
 				"sentinel: closing connection to the old master %s",
 				cn.RemoteAddr(),
 			)
-			internal.Logf(err.Error())
-			d.pool.Remove(cn, err)
+			d.pool.Remove(cn)
 		} else {
 			cnsToPut = append(cnsToPut, cn)
 		}

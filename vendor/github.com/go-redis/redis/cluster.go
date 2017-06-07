@@ -35,6 +35,8 @@ type ClusterOptions struct {
 
 	// Following options are copied from Options struct.
 
+	OnConnect func(*Conn) error
+
 	MaxRetries int
 	Password   string
 
@@ -65,6 +67,8 @@ func (opt *ClusterOptions) clientOptions() *Options {
 	const disableIdleCheck = -1
 
 	return &Options{
+		OnConnect: opt.OnConnect,
+
 		MaxRetries: opt.MaxRetries,
 		Password:   opt.Password,
 		ReadOnly:   opt.ReadOnly,
@@ -77,7 +81,6 @@ func (opt *ClusterOptions) clientOptions() *Options {
 		PoolTimeout: opt.PoolTimeout,
 		IdleTimeout: opt.IdleTimeout,
 
-		// IdleCheckFrequency is not copied to disable reaper
 		IdleCheckFrequency: disableIdleCheck,
 	}
 }
@@ -338,8 +341,6 @@ type ClusterClient struct {
 
 	// Reports where slots reloading is in progress.
 	reloading uint32
-
-	closed bool
 }
 
 // NewClusterClient returns a Redis Cluster client as described in
@@ -351,7 +352,7 @@ func NewClusterClient(opt *ClusterOptions) *ClusterClient {
 		opt:   opt,
 		nodes: newClusterNodes(opt),
 	}
-	c.cmdable.process = c.Process
+	c.setProcessor(c.Process)
 
 	// Add initial nodes.
 	for _, addr := range opt.Addrs {
@@ -394,7 +395,7 @@ func (c *ClusterClient) cmdSlotAndNode(state *clusterState, cmd Cmder) (int, *cl
 		return 0, node, err
 	}
 
-	cmdInfo := c.cmds[cmd.name()]
+	cmdInfo := c.cmds[cmd.Name()]
 	firstKey := cmd.arg(cmdFirstKeyPos(cmd, cmdInfo))
 	slot := hashtag.Slot(firstKey)
 
@@ -652,7 +653,7 @@ func (c *ClusterClient) reaper(idleCheckFrequency time.Duration) {
 	ticker := time.NewTicker(idleCheckFrequency)
 	defer ticker.Stop()
 
-	for _ = range ticker.C {
+	for range ticker.C {
 		nodes, err := c.nodes.All()
 		if err != nil {
 			break
@@ -676,16 +677,15 @@ func (c *ClusterClient) reaper(idleCheckFrequency time.Duration) {
 	}
 }
 
-func (c *ClusterClient) Pipeline() *Pipeline {
+func (c *ClusterClient) Pipeline() Pipeliner {
 	pipe := Pipeline{
 		exec: c.pipelineExec,
 	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
+	pipe.setProcessor(pipe.Process)
 	return &pipe
 }
 
-func (c *ClusterClient) Pipelined(fn func(*Pipeline) error) ([]Cmder, error) {
+func (c *ClusterClient) Pipelined(fn func(Pipeliner) error) ([]Cmder, error) {
 	return c.Pipeline().pipelined(fn)
 }
 
@@ -706,7 +706,7 @@ func (c *ClusterClient) pipelineExec(cmds []Cmder) error {
 			}
 
 			err = c.pipelineProcessCmds(cn, cmds, failedCmds)
-			node.Client.putConn(cn, err, false)
+			node.Client.putConn(cn, err)
 		}
 
 		if len(failedCmds) == 0 {
@@ -799,17 +799,16 @@ func (c *ClusterClient) checkMovedErr(cmd Cmder, failedCmds map[*clusterNode][]C
 }
 
 // TxPipeline acts like Pipeline, but wraps queued commands with MULTI/EXEC.
-func (c *ClusterClient) TxPipeline() *Pipeline {
+func (c *ClusterClient) TxPipeline() Pipeliner {
 	pipe := Pipeline{
 		exec: c.txPipelineExec,
 	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
+	pipe.setProcessor(pipe.Process)
 	return &pipe
 }
 
-func (c *ClusterClient) TxPipelined(fn func(*Pipeline) error) ([]Cmder, error) {
-	return c.Pipeline().pipelined(fn)
+func (c *ClusterClient) TxPipelined(fn func(Pipeliner) error) ([]Cmder, error) {
+	return c.TxPipeline().pipelined(fn)
 }
 
 func (c *ClusterClient) txPipelineExec(cmds []Cmder) error {
@@ -842,7 +841,7 @@ func (c *ClusterClient) txPipelineExec(cmds []Cmder) error {
 				}
 
 				err = c.txPipelineProcessCmds(node, cn, cmds, failedCmds)
-				node.Client.putConn(cn, err, false)
+				node.Client.putConn(cn, err)
 			}
 
 			if len(failedCmds) == 0 {

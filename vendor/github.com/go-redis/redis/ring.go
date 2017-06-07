@@ -29,6 +29,8 @@ type RingOptions struct {
 
 	// Following options are copied from Options struct.
 
+	OnConnect func(*Conn) error
+
 	DB       int
 	Password string
 
@@ -52,6 +54,8 @@ func (opt *RingOptions) init() {
 
 func (opt *RingOptions) clientOptions() *Options {
 	return &Options{
+		OnConnect: opt.OnConnect,
+
 		DB:       opt.DB,
 		Password: opt.Password,
 
@@ -148,7 +152,7 @@ func NewRing(opt *RingOptions) *Ring {
 
 		cmdsInfoOnce: new(sync.Once),
 	}
-	ring.cmdable.process = ring.Process
+	ring.setProcessor(ring.Process)
 	for name, addr := range opt.Addrs {
 		clopt := opt.clientOptions()
 		clopt.Addr = addr
@@ -175,6 +179,34 @@ func (c *Ring) PoolStats() *PoolStats {
 		acc.FreeConns += s.FreeConns
 	}
 	return &acc
+}
+
+// Subscribe subscribes the client to the specified channels.
+func (c *Ring) Subscribe(channels ...string) *PubSub {
+	if len(channels) == 0 {
+		panic("at least one channel is required")
+	}
+
+	shard, err := c.shardByKey(channels[0])
+	if err != nil {
+		// TODO: return PubSub with sticky error
+		panic(err)
+	}
+	return shard.Client.Subscribe(channels...)
+}
+
+// PSubscribe subscribes the client to the given patterns.
+func (c *Ring) PSubscribe(channels ...string) *PubSub {
+	if len(channels) == 0 {
+		panic("at least one channel is required")
+	}
+
+	shard, err := c.shardByKey(channels[0])
+	if err != nil {
+		// TODO: return PubSub with sticky error
+		panic(err)
+	}
+	return shard.Client.PSubscribe(channels...)
 }
 
 // ForEachShard concurrently calls the fn on each live shard in the ring.
@@ -270,7 +302,7 @@ func (c *Ring) shardByName(name string) (*ringShard, error) {
 }
 
 func (c *Ring) cmdShard(cmd Cmder) (*ringShard, error) {
-	cmdInfo := c.cmdInfo(cmd.name())
+	cmdInfo := c.cmdInfo(cmd.Name())
 	firstKey := cmd.arg(cmdFirstKeyPos(cmd, cmdInfo))
 	return c.shardByKey(firstKey)
 }
@@ -302,7 +334,7 @@ func (c *Ring) rebalance() {
 func (c *Ring) heartbeat() {
 	ticker := time.NewTicker(c.opt.HeartbeatFrequency)
 	defer ticker.Stop()
-	for _ = range ticker.C {
+	for range ticker.C {
 		var rebalance bool
 
 		c.mu.RLock()
@@ -353,23 +385,22 @@ func (c *Ring) Close() error {
 	return firstErr
 }
 
-func (c *Ring) Pipeline() *Pipeline {
+func (c *Ring) Pipeline() Pipeliner {
 	pipe := Pipeline{
 		exec: c.pipelineExec,
 	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
+	pipe.setProcessor(pipe.Process)
 	return &pipe
 }
 
-func (c *Ring) Pipelined(fn func(*Pipeline) error) ([]Cmder, error) {
+func (c *Ring) Pipelined(fn func(Pipeliner) error) ([]Cmder, error) {
 	return c.Pipeline().pipelined(fn)
 }
 
 func (c *Ring) pipelineExec(cmds []Cmder) (firstErr error) {
 	cmdsMap := make(map[string][]Cmder)
 	for _, cmd := range cmds {
-		cmdInfo := c.cmdInfo(cmd.name())
+		cmdInfo := c.cmdInfo(cmd.Name())
 		name := cmd.arg(cmdFirstKeyPos(cmd, cmdInfo))
 		if name != "" {
 			name = c.hash.Get(hashtag.Key(name))
@@ -400,7 +431,7 @@ func (c *Ring) pipelineExec(cmds []Cmder) (firstErr error) {
 			}
 
 			canRetry, err := shard.Client.pipelineProcessCmds(cn, cmds)
-			shard.Client.putConn(cn, err, false)
+			shard.Client.putConn(cn, err)
 			if err == nil {
 				continue
 			}

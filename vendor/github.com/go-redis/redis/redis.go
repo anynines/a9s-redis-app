@@ -21,28 +21,25 @@ func (c *baseClient) String() string {
 	return fmt.Sprintf("Redis<%s db:%d>", c.getAddr(), c.opt.DB)
 }
 
-// Options returns read-only Options that were used to create the client.
-func (c *baseClient) Options() *Options {
-	return c.opt
-}
-
 func (c *baseClient) conn() (*pool.Conn, bool, error) {
 	cn, isNew, err := c.connPool.Get()
 	if err != nil {
 		return nil, false, err
 	}
+
 	if !cn.Inited {
 		if err := c.initConn(cn); err != nil {
-			_ = c.connPool.Remove(cn, err)
+			_ = c.connPool.Remove(cn)
 			return nil, false, err
 		}
 	}
+
 	return cn, isNew, nil
 }
 
-func (c *baseClient) putConn(cn *pool.Conn, err error, allowTimeout bool) bool {
-	if internal.IsBadConn(err, allowTimeout) {
-		_ = c.connPool.Remove(cn, err)
+func (c *baseClient) putConn(cn *pool.Conn, err error) bool {
+	if internal.IsBadConn(err, false) {
+		_ = c.connPool.Remove(cn)
 		return false
 	}
 
@@ -53,13 +50,23 @@ func (c *baseClient) putConn(cn *pool.Conn, err error, allowTimeout bool) bool {
 func (c *baseClient) initConn(cn *pool.Conn) error {
 	cn.Inited = true
 
-	if c.opt.Password == "" && c.opt.DB == 0 && !c.opt.ReadOnly {
+	if c.opt.Password == "" &&
+		c.opt.DB == 0 &&
+		!c.opt.ReadOnly &&
+		c.opt.OnConnect == nil {
 		return nil
 	}
 
-	// Temp client for Auth and Select.
-	client := newClient(c.opt, pool.NewSingleConnPool(cn))
-	_, err := client.Pipelined(func(pipe *Pipeline) error {
+	// Temp client to initialize connection.
+	conn := &Conn{
+		baseClient: baseClient{
+			opt:      c.opt,
+			connPool: pool.NewSingleConnPool(cn),
+		},
+	}
+	conn.setProcessor(conn.Process)
+
+	_, err := conn.Pipelined(func(pipe Pipeliner) error {
 		if c.opt.Password != "" {
 			pipe.Auth(c.opt.Password)
 		}
@@ -74,7 +81,14 @@ func (c *baseClient) initConn(cn *pool.Conn) error {
 
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if c.opt.OnConnect != nil {
+		return c.opt.OnConnect(conn)
+	}
+	return nil
 }
 
 func (c *baseClient) Process(cmd Cmder) error {
@@ -94,17 +108,24 @@ func (c *baseClient) WrapProcess(fn func(oldProcess func(cmd Cmder) error) func(
 
 func (c *baseClient) defaultProcess(cmd Cmder) error {
 	for i := 0; i <= c.opt.MaxRetries; i++ {
+		if i > 0 {
+			time.Sleep(internal.RetryBackoff(i, c.opt.MaxRetryBackoff))
+		}
+
 		cn, _, err := c.conn()
 		if err != nil {
 			cmd.setErr(err)
+			if internal.IsRetryableError(err) {
+				continue
+			}
 			return err
 		}
 
 		cn.SetWriteTimeout(c.opt.WriteTimeout)
 		if err := writeCmd(cn, cmd); err != nil {
-			c.putConn(cn, err, false)
+			c.putConn(cn, err)
 			cmd.setErr(err)
-			if err != nil && internal.IsRetryableError(err) {
+			if internal.IsRetryableError(err) {
 				continue
 			}
 			return err
@@ -112,7 +133,7 @@ func (c *baseClient) defaultProcess(cmd Cmder) error {
 
 		cn.SetReadTimeout(c.cmdTimeout(cmd))
 		err = cmd.readReply(cn)
-		c.putConn(cn, err, false)
+		c.putConn(cn, err)
 		if err != nil && internal.IsRetryableError(err) {
 			continue
 		}
@@ -165,7 +186,7 @@ func (c *baseClient) pipelineExecer(p pipelineProcessor) pipelineExecer {
 			}
 
 			canRetry, err := p(cn, cmds)
-			c.putConn(cn, err, false)
+			c.putConn(cn, err)
 			if err == nil {
 				return nil
 			}
@@ -180,7 +201,7 @@ func (c *baseClient) pipelineExecer(p pipelineProcessor) pipelineExecer {
 	}
 }
 
-func (c *baseClient) pipelineProcessCmds(cn *pool.Conn, cmds []Cmder) (retry bool, firstErr error) {
+func (c *baseClient) pipelineProcessCmds(cn *pool.Conn, cmds []Cmder) (bool, error) {
 	cn.SetWriteTimeout(c.opt.WriteTimeout)
 	if err := writeCmd(cn, cmds...); err != nil {
 		setCmdsErr(cmds, err)
@@ -205,7 +226,7 @@ func pipelineReadCmds(cn *pool.Conn, cmds []Cmder) (retry bool, firstErr error) 
 			firstErr = err
 		}
 	}
-	return false, firstErr
+	return
 }
 
 func (c *baseClient) txPipelineProcessCmds(cn *pool.Conn, cmds []Cmder) (bool, error) {
@@ -292,7 +313,7 @@ func newClient(opt *Options, pool pool.Pooler) *Client {
 			connPool: pool,
 		},
 	}
-	client.cmdable.process = client.Process
+	client.setProcessor(client.Process)
 	return &client
 }
 
@@ -305,8 +326,13 @@ func NewClient(opt *Options) *Client {
 func (c *Client) copy() *Client {
 	c2 := new(Client)
 	*c2 = *c
-	c2.cmdable.process = c2.Process
+	c2.setProcessor(c2.Process)
 	return c2
+}
+
+// Options returns read-only Options that were used to create the client.
+func (c *Client) Options() *Options {
+	return c.opt
 }
 
 // PoolStats returns connection pool stats.
@@ -322,30 +348,28 @@ func (c *Client) PoolStats() *PoolStats {
 	}
 }
 
-func (c *Client) Pipelined(fn func(*Pipeline) error) ([]Cmder, error) {
+func (c *Client) Pipelined(fn func(Pipeliner) error) ([]Cmder, error) {
 	return c.Pipeline().pipelined(fn)
 }
 
-func (c *Client) Pipeline() *Pipeline {
+func (c *Client) Pipeline() Pipeliner {
 	pipe := Pipeline{
 		exec: c.pipelineExecer(c.pipelineProcessCmds),
 	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
+	pipe.setProcessor(pipe.Process)
 	return &pipe
 }
 
-func (c *Client) TxPipelined(fn func(*Pipeline) error) ([]Cmder, error) {
+func (c *Client) TxPipelined(fn func(Pipeliner) error) ([]Cmder, error) {
 	return c.TxPipeline().pipelined(fn)
 }
 
 // TxPipeline acts like Pipeline, but wraps queued commands with MULTI/EXEC.
-func (c *Client) TxPipeline() *Pipeline {
+func (c *Client) TxPipeline() Pipeliner {
 	pipe := Pipeline{
 		exec: c.pipelineExecer(c.txPipelineProcessCmds),
 	}
-	pipe.cmdable.process = pipe.Process
-	pipe.statefulCmdable.process = pipe.Process
+	pipe.setProcessor(pipe.Process)
 	return &pipe
 }
 
@@ -353,31 +377,58 @@ func (c *Client) pubSub() *PubSub {
 	return &PubSub{
 		base: baseClient{
 			opt:      c.opt,
-			connPool: pool.NewStickyConnPool(c.connPool.(*pool.ConnPool), false),
+			connPool: c.connPool,
 		},
 	}
 }
 
 // Subscribe subscribes the client to the specified channels.
-func (c *Client) Subscribe(channels ...string) (*PubSub, error) {
+func (c *Client) Subscribe(channels ...string) *PubSub {
 	pubsub := c.pubSub()
 	if len(channels) > 0 {
-		if err := pubsub.Subscribe(channels...); err != nil {
-			pubsub.Close()
-			return nil, err
-		}
+		_ = pubsub.Subscribe(channels...)
 	}
-	return pubsub, nil
+	return pubsub
 }
 
 // PSubscribe subscribes the client to the given patterns.
-func (c *Client) PSubscribe(channels ...string) (*PubSub, error) {
+func (c *Client) PSubscribe(channels ...string) *PubSub {
 	pubsub := c.pubSub()
 	if len(channels) > 0 {
-		if err := pubsub.PSubscribe(channels...); err != nil {
-			pubsub.Close()
-			return nil, err
-		}
+		_ = pubsub.PSubscribe(channels...)
 	}
-	return pubsub, nil
+	return pubsub
+}
+
+//------------------------------------------------------------------------------
+
+// Conn is like Client, but its pool contains single connection.
+type Conn struct {
+	baseClient
+	statefulCmdable
+}
+
+func (c *Conn) Pipelined(fn func(Pipeliner) error) ([]Cmder, error) {
+	return c.Pipeline().pipelined(fn)
+}
+
+func (c *Conn) Pipeline() Pipeliner {
+	pipe := Pipeline{
+		exec: c.pipelineExecer(c.pipelineProcessCmds),
+	}
+	pipe.setProcessor(pipe.Process)
+	return &pipe
+}
+
+func (c *Conn) TxPipelined(fn func(Pipeliner) error) ([]Cmder, error) {
+	return c.TxPipeline().pipelined(fn)
+}
+
+// TxPipeline acts like Pipeline, but wraps queued commands with MULTI/EXEC.
+func (c *Conn) TxPipeline() Pipeliner {
+	pipe := Pipeline{
+		exec: c.pipelineExecer(c.txPipelineProcessCmds),
+	}
+	pipe.setProcessor(pipe.Process)
+	return &pipe
 }
