@@ -3,46 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"path": "bufio",
-			"revision": ""
-		},
-		{
-			"path": "bytes",
-			"revision": ""
-		},
-		{
-			"path": "context",
-			"revision": ""
-		},
-		{
-			"path": "crypto/sha1",
-			"revision": ""
-		},
-		{
-			"path": "crypto/tls",
-			"revision": ""
-		},
-		{
-			"path": "encoding",
-			"revision": ""
-		},
-		{
-			"path": "encoding/hex",
-			"revision": ""
-		},
-		{
-			"path": "encoding/json",
-			"revision": ""
-		},
-		{
-			"path": "errors",
-			"revision": ""
-		},
-		{
-			"path": "fmt",
-			"revision": ""
-		},
-		{
 			"checksumSHA1": "VDjMat5B6FPC7C15GQjKHPkipe4=",
 			"path": "github.com/anynines/a9s-redis-app",
 			"revision": "ec8656ce6e33bf542cfc690ac1cbe1247b553da1",
@@ -83,82 +43,6 @@
 			"path": "github.com/go-redis/redis/internal/proto",
 			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
 			"revisionTime": "2017-06-02T13:19:43Z"
-		},
-		{
-			"path": "hash/crc32",
-			"revision": ""
-		},
-		{
-			"path": "html/template",
-			"revision": ""
-		},
-		{
-			"path": "io",
-			"revision": ""
-		},
-		{
-			"path": "log",
-			"revision": ""
-		},
-		{
-			"path": "math/rand",
-			"revision": ""
-		},
-		{
-			"path": "net",
-			"revision": ""
-		},
-		{
-			"path": "net/http",
-			"revision": ""
-		},
-		{
-			"path": "net/url",
-			"revision": ""
-		},
-		{
-			"path": "os",
-			"revision": ""
-		},
-		{
-			"path": "path",
-			"revision": ""
-		},
-		{
-			"path": "path/filepath",
-			"revision": ""
-		},
-		{
-			"path": "reflect",
-			"revision": ""
-		},
-		{
-			"path": "sort",
-			"revision": ""
-		},
-		{
-			"path": "strconv",
-			"revision": ""
-		},
-		{
-			"path": "strings",
-			"revision": ""
-		},
-		{
-			"path": "sync",
-			"revision": ""
-		},
-		{
-			"path": "sync/atomic",
-			"revision": ""
-		},
-		{
-			"path": "time",
-			"revision": ""
-		},
-		{
-			"path": "unsafe",
-			"revision": ""
 		}
 	],
 	"rootPath": "github.com/anynines/a9s-redis-app"
