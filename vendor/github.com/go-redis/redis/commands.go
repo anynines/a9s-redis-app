@@ -2,7 +2,6 @@ package redis
 
 import (
 	"io"
-	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/internal"
@@ -19,30 +18,31 @@ func usePrecise(dur time.Duration) bool {
 	return dur < time.Second || dur%time.Second != 0
 }
 
-func formatMs(dur time.Duration) string {
+func formatMs(dur time.Duration) int64 {
 	if dur > 0 && dur < time.Millisecond {
 		internal.Logf(
 			"specified duration is %s, but minimal supported value is %s",
 			dur, time.Millisecond,
 		)
 	}
-	return strconv.FormatInt(int64(dur/time.Millisecond), 10)
+	return int64(dur / time.Millisecond)
 }
 
-func formatSec(dur time.Duration) string {
+func formatSec(dur time.Duration) int64 {
 	if dur > 0 && dur < time.Second {
 		internal.Logf(
 			"specified duration is %s, but minimal supported value is %s",
 			dur, time.Second,
 		)
 	}
-	return strconv.FormatInt(int64(dur/time.Second), 10)
+	return int64(dur / time.Second)
 }
 
 type Cmdable interface {
-	Pipeline() *Pipeline
-	Pipelined(fn func(*Pipeline) error) ([]Cmder, error)
+	Pipeline() Pipeliner
+	Pipelined(fn func(Pipeliner) error) ([]Cmder, error)
 
+	ClientGetName() *StringCmd
 	Echo(message interface{}) *StringCmd
 	Ping() *StatusCmd
 	Quit() *StatusCmd
@@ -238,6 +238,15 @@ type Cmdable interface {
 	Command() *CommandsInfoCmd
 }
 
+type StatefulCmdable interface {
+	Cmdable
+	Auth(password string) *StatusCmd
+	Select(index int) *StatusCmd
+	ClientSetName(name string) *BoolCmd
+	ReadOnly() *StatusCmd
+	ReadWrite() *StatusCmd
+}
+
 var _ Cmdable = (*Client)(nil)
 var _ Cmdable = (*Tx)(nil)
 var _ Cmdable = (*Ring)(nil)
@@ -247,8 +256,18 @@ type cmdable struct {
 	process func(cmd Cmder) error
 }
 
+func (c *cmdable) setProcessor(fn func(Cmder) error) {
+	c.process = fn
+}
+
 type statefulCmdable struct {
+	cmdable
 	process func(cmd Cmder) error
+}
+
+func (c *statefulCmdable) setProcessor(fn func(Cmder) error) {
+	c.process = fn
+	c.cmdable.setProcessor(fn)
 }
 
 //------------------------------------------------------------------------------
@@ -272,7 +291,6 @@ func (c *cmdable) Ping() *StatusCmd {
 }
 
 func (c *cmdable) Wait(numSlaves int, timeout time.Duration) *IntCmd {
-
 	cmd := NewIntCmd("wait", numSlaves, int(timeout/time.Millisecond))
 	c.process(cmd)
 	return cmd
@@ -1340,7 +1358,7 @@ func (c *cmdable) ZInterStore(destination string, store ZStore, keys ...string) 
 	args := make([]interface{}, 3+len(keys))
 	args[0] = "zinterstore"
 	args[1] = destination
-	args[2] = strconv.Itoa(len(keys))
+	args[2] = len(keys)
 	for i, key := range keys {
 		args[3+i] = key
 	}
@@ -1536,7 +1554,7 @@ func (c *cmdable) ZUnionStore(dest string, store ZStore, keys ...string) *IntCmd
 	args := make([]interface{}, 3+len(keys))
 	args[0] = "zunionstore"
 	args[1] = dest
-	args[2] = strconv.Itoa(len(keys))
+	args[2] = len(keys)
 	for i, key := range keys {
 		args[3+i] = key
 	}
@@ -1631,7 +1649,7 @@ func (c *statefulCmdable) ClientSetName(name string) *BoolCmd {
 }
 
 // ClientGetName returns the name of the connection.
-func (c *statefulCmdable) ClientGetName() *StringCmd {
+func (c *cmdable) ClientGetName() *StringCmd {
 	cmd := NewStringCmd("client", "getname")
 	c.process(cmd)
 	return cmd
@@ -1755,7 +1773,7 @@ func (c *cmdable) Eval(script string, keys []string, args ...interface{}) *Cmd {
 	cmdArgs := make([]interface{}, 3+len(keys)+len(args))
 	cmdArgs[0] = "eval"
 	cmdArgs[1] = script
-	cmdArgs[2] = strconv.Itoa(len(keys))
+	cmdArgs[2] = len(keys)
 	for i, key := range keys {
 		cmdArgs[3+i] = key
 	}
@@ -1772,7 +1790,7 @@ func (c *cmdable) EvalSha(sha1 string, keys []string, args ...interface{}) *Cmd 
 	cmdArgs := make([]interface{}, 3+len(keys)+len(args))
 	cmdArgs[0] = "evalsha"
 	cmdArgs[1] = sha1
-	cmdArgs[2] = strconv.Itoa(len(keys))
+	cmdArgs[2] = len(keys)
 	for i, key := range keys {
 		cmdArgs[3+i] = key
 	}
@@ -1984,7 +2002,7 @@ func (c *cmdable) ClusterAddSlots(slots ...int) *StatusCmd {
 	args[0] = "cluster"
 	args[1] = "addslots"
 	for i, num := range slots {
-		args[2+i] = strconv.Itoa(num)
+		args[2+i] = num
 	}
 	cmd := NewStatusCmd(args...)
 	c.process(cmd)

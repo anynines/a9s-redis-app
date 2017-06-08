@@ -33,7 +33,7 @@ var (
 type Cmder interface {
 	args() []interface{}
 	arg(int) string
-	name() string
+	Name() string
 
 	readReply(*pool.Conn) error
 	setErr(error)
@@ -84,16 +84,18 @@ func cmdString(cmd Cmder, val interface{}) string {
 }
 
 func cmdFirstKeyPos(cmd Cmder, info *CommandInfo) int {
-	switch cmd.name() {
+	switch cmd.Name() {
 	case "eval", "evalsha":
 		if cmd.arg(2) != "0" {
 			return 3
 		} else {
 			return -1
 		}
+	case "publish":
+		return 1
 	}
 	if info == nil {
-		internal.Logf("info for cmd=%s not found", cmd.name())
+		internal.Logf("info for cmd=%s not found", cmd.Name())
 		return -1
 	}
 	return int(info.FirstKeyPos)
@@ -109,10 +111,7 @@ type baseCmd struct {
 }
 
 func (cmd *baseCmd) Err() error {
-	if cmd.err != nil {
-		return cmd.err
-	}
-	return nil
+	return cmd.err
 }
 
 func (cmd *baseCmd) args() []interface{} {
@@ -127,7 +126,7 @@ func (cmd *baseCmd) arg(pos int) string {
 	return s
 }
 
-func (cmd *baseCmd) name() string {
+func (cmd *baseCmd) Name() string {
 	if len(cmd._args) > 0 {
 		// Cmd name must be lower cased.
 		s := internal.ToLower(cmd.arg(0))
@@ -147,14 +146,6 @@ func (cmd *baseCmd) setReadTimeout(d time.Duration) {
 
 func (cmd *baseCmd) setErr(e error) {
 	cmd.err = e
-}
-
-func newBaseCmd(args []interface{}) baseCmd {
-	if len(args) > 0 {
-		// Cmd name is expected to be in lower case.
-		args[0] = internal.ToLower(args[0].(string))
-	}
-	return baseCmd{_args: args}
 }
 
 //------------------------------------------------------------------------------
@@ -840,9 +831,8 @@ func NewGeoLocationCmd(q *GeoRadiusQuery, args ...interface{}) *GeoLocationCmd {
 	if q.Sort != "" {
 		args = append(args, q.Sort)
 	}
-	cmd := newBaseCmd(args)
 	return &GeoLocationCmd{
-		baseCmd: cmd,
+		baseCmd: baseCmd{_args: args},
 		q:       q,
 	}
 }

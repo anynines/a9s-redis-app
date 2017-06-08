@@ -3,40 +3,46 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "V7tBIJmTA1lS00n9JFqGAixhS6E=",
-			"path": "github.com/go-redis/redis",
-			"revision": "2cf5af9928978bbef8d1076607022403439e177c",
-			"revisionTime": "2017-03-20T10:23:42Z"
+			"checksumSHA1": "VDjMat5B6FPC7C15GQjKHPkipe4=",
+			"path": "github.com/anynines/a9s-redis-app",
+			"revision": "ec8656ce6e33bf542cfc690ac1cbe1247b553da1",
+			"revisionTime": "2017-03-30T12:21:48Z"
 		},
 		{
-			"checksumSHA1": "XUqPA2V7/z8JyWnCPclCztcXO7M=",
+			"checksumSHA1": "8e1otPfJWefeg6kZwMFyRzxpuqY=",
+			"path": "github.com/go-redis/redis",
+			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
+			"revisionTime": "2017-06-02T13:19:43Z"
+		},
+		{
+			"checksumSHA1": "4nvc3mJXcLJxCWKHhVLvAAstQVI=",
 			"path": "github.com/go-redis/redis/internal",
-			"revision": "2cf5af9928978bbef8d1076607022403439e177c",
-			"revisionTime": "2017-03-20T10:23:42Z"
+			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
+			"revisionTime": "2017-06-02T13:19:43Z"
 		},
 		{
 			"checksumSHA1": "GQZsUVg/+6UpQAYpc4luMvMutSI=",
 			"path": "github.com/go-redis/redis/internal/consistenthash",
-			"revision": "2cf5af9928978bbef8d1076607022403439e177c",
-			"revisionTime": "2017-03-20T10:23:42Z"
+			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
+			"revisionTime": "2017-06-02T13:19:43Z"
 		},
 		{
 			"checksumSHA1": "VP0K8vvf716n6xuzAZTvpz+wTwc=",
 			"path": "github.com/go-redis/redis/internal/hashtag",
-			"revision": "2cf5af9928978bbef8d1076607022403439e177c",
-			"revisionTime": "2017-03-20T10:23:42Z"
+			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
+			"revisionTime": "2017-06-02T13:19:43Z"
 		},
 		{
-			"checksumSHA1": "R3ZMjMsT4Be82Gstb7r8ijyQEaw=",
+			"checksumSHA1": "jqWbW7HClGFK4zjaW96RWdRElZk=",
 			"path": "github.com/go-redis/redis/internal/pool",
-			"revision": "2cf5af9928978bbef8d1076607022403439e177c",
-			"revisionTime": "2017-03-20T10:23:42Z"
+			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
+			"revisionTime": "2017-06-02T13:19:43Z"
 		},
 		{
-			"checksumSHA1": "4+jL3+y/up48Cfew+2llzjGSf5A=",
+			"checksumSHA1": "Ct2AS6Z9YmTAlKOMsBrhwvpXAPY=",
 			"path": "github.com/go-redis/redis/internal/proto",
-			"revision": "2cf5af9928978bbef8d1076607022403439e177c",
-			"revisionTime": "2017-03-20T10:23:42Z"
+			"revision": "f29951c8990f0d31d1bacc27393ac88e3edf7e21",
+			"revisionTime": "2017-06-02T13:19:43Z"
 		}
 	],
 	"rootPath": "github.com/anynines/a9s-redis-app"

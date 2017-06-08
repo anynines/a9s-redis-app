@@ -24,6 +24,9 @@ type Options struct {
 	// Network and Addr options.
 	Dialer func() (net.Conn, error)
 
+	// Hook that is called when new connection is established.
+	OnConnect func(*Conn) error
+
 	// Optional password. Must match the password specified in the
 	// requirepass server configuration option.
 	Password string
@@ -34,6 +37,10 @@ type Options struct {
 	// Default is to not retry failed commands.
 	MaxRetries int
 
+	// Maximum backoff between each retry.
+	// Default is 512 seconds; -1 disables backoff.
+	MaxRetryBackoff time.Duration
+
 	// Dial timeout for establishing new connections.
 	// Default is 5 seconds.
 	DialTimeout time.Duration
@@ -43,7 +50,7 @@ type Options struct {
 	ReadTimeout time.Duration
 	// Timeout for socket writes. If reached, commands will fail
 	// with a timeout instead of blocking.
-	// Default is 3 seconds.
+	// Default is ReadTimeout.
 	WriteTimeout time.Duration
 
 	// Maximum number of socket connections.
@@ -55,7 +62,7 @@ type Options struct {
 	PoolTimeout time.Duration
 	// Amount of time after which client closes idle connections.
 	// Should be less than server's timeout.
-	// Default is to not close idle connections.
+	// Default is 5 minutes.
 	IdleTimeout time.Duration
 	// Frequency of idle checks.
 	// Default is 1 minute.
@@ -89,15 +96,17 @@ func (opt *Options) init() {
 	if opt.DialTimeout == 0 {
 		opt.DialTimeout = 5 * time.Second
 	}
-	if opt.ReadTimeout == 0 {
-		opt.ReadTimeout = 3 * time.Second
-	} else if opt.ReadTimeout == -1 {
+	switch opt.ReadTimeout {
+	case -1:
 		opt.ReadTimeout = 0
+	case 0:
+		opt.ReadTimeout = 3 * time.Second
 	}
-	if opt.WriteTimeout == 0 {
-		opt.WriteTimeout = opt.ReadTimeout
-	} else if opt.WriteTimeout == -1 {
+	switch opt.WriteTimeout {
+	case -1:
 		opt.WriteTimeout = 0
+	case 0:
+		opt.WriteTimeout = opt.ReadTimeout
 	}
 	if opt.PoolTimeout == 0 {
 		opt.PoolTimeout = opt.ReadTimeout + time.Second
@@ -107,6 +116,12 @@ func (opt *Options) init() {
 	}
 	if opt.IdleCheckFrequency == 0 {
 		opt.IdleCheckFrequency = time.Minute
+	}
+	switch opt.MaxRetryBackoff {
+	case -1:
+		opt.MaxRetryBackoff = 0
+	case 0:
+		opt.MaxRetryBackoff = 512 * time.Millisecond
 	}
 }
 
