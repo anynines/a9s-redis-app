@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/go-redis/redis"
 )
@@ -23,7 +24,7 @@ type RedisCredentials struct {
 type VCAPServices struct {
 	Redis []struct {
 		Credentials RedisCredentials `json:"credentials"`
-	} `json:"a9s-redis32"`
+	} `json:"a9s-redis40"`
 }
 
 type KeyValue struct {
@@ -43,7 +44,44 @@ func initTemplates() {
 	templates["new"] = template.Must(template.ParseFiles("templates/new.html", "templates/base.html"))
 }
 
-func fetchCredentials() (RedisCredentials, error) {
+func createCredentials() (RedisCredentials, error) {
+	// Kubernetes
+	if os.Getenv("VCAP_SERVICES") == "" {
+		host := os.Getenv("REDIS_HOST")
+		if len(host) < 1 {
+			err := fmt.Errorf("Environment variable REDIS_HOST missing.")
+			log.Println(err)
+			return RedisCredentials{}, err
+		}
+
+		password := os.Getenv("REDIS_PASSWORD")
+		if len(password) < 1 {
+			err := fmt.Errorf("Environment variable REDIS_PASSWORD missing.")
+			log.Println(err)
+			return RedisCredentials{}, err
+		}
+		portStr := os.Getenv("REDIS_PORT")
+		if len(portStr) < 1 {
+			err := fmt.Errorf("Environment variable REDIS_PORT missing.")
+			log.Println(err)
+			return RedisCredentials{}, err
+		}
+
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			log.Println(err)
+			return RedisCredentials{}, err
+		}
+
+		credentials := RedisCredentials{
+			Host:     host,
+			Password: password,
+			Port:     port,
+		}
+		return credentials, nil
+	}
+
+	// Cloud Foundry
 	// no new read of the env var, the reason is the receiver loop
 	var s VCAPServices
 	err := json.Unmarshal([]byte(os.Getenv("VCAP_SERVICES")), &s)
@@ -64,7 +102,7 @@ func renderTemplate(w http.ResponseWriter, name string, template string, viewMod
 }
 
 func NewClient() (*redis.Client, error) {
-	credentials, err := fetchCredentials()
+	credentials, err := createCredentials()
 	if err != nil {
 		return nil, err
 	}
@@ -135,15 +173,16 @@ func renderKeyValues(w http.ResponseWriter, r *http.Request) {
 func main() {
 	initTemplates()
 
-	port := "9000"
+	port := "9090"
 	if port = os.Getenv("PORT"); len(port) == 0 {
-		port = "9000"
+		port = "9090"
 	}
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("Public dir: %v\n", dir)
 
 	fs := http.FileServer(http.Dir(path.Join(dir, "public")))
 	http.Handle("/public/", http.StripPrefix("/public/", fs))

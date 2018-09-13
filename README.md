@@ -14,7 +14,7 @@ $ cd $GOPATH/src/github.com/anynines/a9s-redis-app
 
 Create a service on the [a9s PaaS](https://paas.anynines.com)
 ```
-$ cf create-service a9s-redis32 redis-single-non-persistent-small myredis
+$ cf create-service a9s-redis40 redis-single-non-persistent-small myredis
 ```
 
 Push the app
@@ -40,7 +40,7 @@ At last check the created url...
 To start it locally you have to export the env variable VCAP_SERVICES
 ```
 $ export VCAP_SERVICES='{
-  "a9s-redis32": [
+  "a9s-redis40": [
    {
     "credentials": {
      "host": "localhost",
@@ -65,4 +65,4 @@ $ ./a9s-redis-app
 
 ## Remark
 
-To bind the app to other Redis services than `a9s-redis32`, have a look at the `VCAPServices` struct.
+To bind the app to other Redis services than `a9s-redis40`, have a look at the `VCAPServices` struct.
