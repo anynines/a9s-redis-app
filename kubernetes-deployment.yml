@@ -12,22 +12,22 @@ spec:
     spec:
       containers:
       - name: a9s-redis-demo
-        image: mycluster.icp:8500/a9s-ds/a9s-redis-demo:v3
+        image: mycluster.icp:8500/a9s-ds/a9s-redis-demo:latest
         ports:
         - containerPort: 9090
         env:
         - name: "REDIS_HOST"
           valueFrom:
             secretKeyRef:
-              name: gogolok1
+              name: redis-binding
               key: host
         - name: "REDIS_PASSWORD"
           valueFrom:
             secretKeyRef:
-              name: gogolok1
+              name: redis-binding
               key: password
         - name: "REDIS_PORT"
           valueFrom:
             secretKeyRef:
-              name: gogolok1
+              name: redis-binding
               key: port

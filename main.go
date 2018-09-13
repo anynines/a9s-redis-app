@@ -182,6 +182,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if os.Getenv("VCAP_SERVICES") == "" {
+		dir, err = filepath.Abs("/app/public")
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	log.Printf("Public dir: %v\n", dir)
 
 	fs := http.FileServer(http.Dir(path.Join(dir, "public")))
