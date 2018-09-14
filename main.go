@@ -106,6 +106,7 @@ func NewClient() (*redis.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("Connection to:\n%v\n", credentials)
 
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%v:%v", credentials.Host, credentials.Port),
@@ -183,7 +184,7 @@ func main() {
 		log.Fatal(err)
 	}
 	if os.Getenv("VCAP_SERVICES") == "" {
-		dir, err = filepath.Abs("/app/public")
+		dir, err = filepath.Abs("/app")
 		if err != nil {
 			log.Fatal(err)
 		}
