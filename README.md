@@ -1,6 +1,6 @@
 # a9s Redis App
 
-This is a sample app to check whether the Redis service is working or not.
+This is a sample app to check whether the a9s Redis service is working or not.
 
 ## Install, push and bind
 
