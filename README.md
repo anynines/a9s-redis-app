@@ -2,7 +2,7 @@
 
 This is a sample app to check whether the a9s Redis service is working or not.
 
-## Install, push and bind
+## Install, Push and Bind
 
 Make sure you installed GO on your machine, [download this](https://golang.org/doc/install?download=go1.8.darwin-amd64.pkg) for mac.
 
