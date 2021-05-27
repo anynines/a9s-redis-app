@@ -40,7 +40,7 @@ At last check the created url...
 To start it locally you have to export the env variable VCAP_SERVICES
 ```
 $ export VCAP_SERVICES='{
-  "a9s-redis40": [
+  "a9s-redis50": [
    {
     "credentials": {
      "host": "localhost",
@@ -65,4 +65,4 @@ $ ./a9s-redis-app
 
 ## Remark
 
-To bind the app to other Redis services than `a9s-redis40`, have a look at the `VCAPServices` struct.
+To bind the app to other Redis services than `a9s-redis50`, have a look at the `VCAPServices` struct.

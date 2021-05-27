@@ -1,29 +1,28 @@
 {{define "title"}}<title>Redis Demo</title>{{end}}
 {{define "body"}}
 
-<div class="container content">
-	<div class="row">
-		<div class="col-lg-9">
-			<div class="page-header">
+<div class="page__container">
+			<div class="page__header">
 				<h1>Create Key Value</h1>
 			</div>
       <form class="form-horizontal post" id="new_post" action="/key-values/create" method="post">
-        <p>Key:<br>
-            <input type="text" name="key"/>
-        </p>
-        <p>Value:<br>
-            <input type="text" name="value"/>
-        </p>
-        <p>
-            <input type="submit" value="Submit"/>
-            <div class='actions rAlign'>
-              <a href="/">Cancel</a>
-            </div>
-        </p>
-      </form>
-		</div> <!-- col-lg-9 -->
-	</div><!--/row-->
-</div> <!-- /container -->
+        <label for="key" style="margin-bottom: 5px">Key</label>
+        <textarea
+          rows="1"
+          cols="50"
+          name="key"
+          placeholder="Key"></textarea>
 
+        <label for="value" style="margin-bottom: 5px">Value</label>
+        <textarea
+          rows="4"
+          cols="50"
+          name="value"
+          placeholder="Enter your value here"></textarea>
+
+        <input class="btn" type="submit" value="Submit"/>
+        <a class="btn" href="/" >Cancel</a>
+      </form>
+</div> <!-- /container -->
 
 {{end}}

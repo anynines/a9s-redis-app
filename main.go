@@ -24,7 +24,7 @@ type RedisCredentials struct {
 type VCAPServices struct {
 	Redis []struct {
 		Credentials RedisCredentials `json:"credentials"`
-	} `json:"a9s-redis40"`
+	} `json:"a9s-redis50"`
 }
 
 type KeyValue struct {
