@@ -189,6 +189,15 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	// local testing
+	if len(os.Getenv("APP_DIR")) > 0 {
+		dir, err = filepath.Abs(os.Getenv("APP_DIR"))
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	log.Printf("Public dir: %v\n", dir)
 
 	fs := http.FileServer(http.Dir(path.Join(dir, "public")))

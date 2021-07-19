@@ -49,6 +49,7 @@ Export a few environment variables and run the sample app:
 $ export REDIS_HOST=localhost
 $ export REDIS_PORT=6379
 $ export REDIS_PASSWORD=secret
+$ export APP_DIR=$PWD
 $ go build
 $ ./a9s-redis-app
 ```
