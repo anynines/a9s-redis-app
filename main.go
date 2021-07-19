@@ -179,10 +179,10 @@ func main() {
 		port = "9090"
 	}
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
+	// https://docs.cloudfoundry.org/devguide/deploy-apps/environment-variable.html#-home
+	appPath := os.Getenv("HOME")
+
+	dir, err := filepath.Abs(appPath)
 	if os.Getenv("VCAP_SERVICES") == "" {
 		dir, err = filepath.Abs("/app")
 		if err != nil {
