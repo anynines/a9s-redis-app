@@ -35,30 +35,20 @@ $ cf start redis-app
 At last check the created url...
 
 
-## Local test
-
-To start it locally you have to export the env variable VCAP_SERVICES
-```
-$ export VCAP_SERVICES='{
-  "a9s-redis50": [
-   {
-    "credentials": {
-     "host": "localhost",
-     "password": "secret",
-     "port": 6379
-    }
-   }
-  ]
- }'
- ```
+## Local Test
 
 Start Redis service with Docker:
+
 ```shell
 $ docker run -d -p 6379:6379 redis redis-server --requirepass secret
 ```
 
-Run the sample app
-```
+Export a few environment variables and run the sample app:
+
+```shell
+$ export REDIS_HOST=localhost
+$ export REDIS_PORT=6379
+$ export REDIS_PASSWORD=secret
 $ go build
 $ ./a9s-redis-app
 ```
