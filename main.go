@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,16 +11,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 
 	"github.com/go-redis/redis"
 )
 
-type RedisCredentials struct {
-	Host     string `json:"host"`
-	Password string `json:"password"`
-	Port     int    `json:"port"`
-}
+type RedisCredentials map[string]interface{}
 
 // struct for reading env
 type VCAPServices struct {
@@ -60,23 +57,17 @@ func createCredentials() (RedisCredentials, error) {
 			log.Println(err)
 			return RedisCredentials{}, err
 		}
-		portStr := os.Getenv("REDIS_PORT")
-		if len(portStr) < 1 {
+		port := os.Getenv("REDIS_PORT")
+		if len(port) < 1 {
 			err := fmt.Errorf("Environment variable REDIS_PORT missing.")
 			log.Println(err)
 			return RedisCredentials{}, err
 		}
 
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			log.Println(err)
-			return RedisCredentials{}, err
-		}
-
 		credentials := RedisCredentials{
-			Host:     host,
-			Password: password,
-			Port:     port,
+			host:     host,
+			password: password,
+			port:     port,
 		}
 		return credentials, nil
 	}
@@ -108,11 +99,26 @@ func NewClient() (*redis.Client, error) {
 	}
 	log.Printf("Connection to:\n%v\n", credentials)
 
-	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%v:%v", credentials.Host, credentials.Port),
-		Password: credentials.Password,
+	host := (credentials)["host"].(string)
+	opts := &redis.Options{
+		Addr:     fmt.Sprintf("%v:%v", host, (credentials)["port"].(float64)),
+		Password: (credentials)["password"].(string),
 		DB:       0, // use default DB
-	})
+	}
+	if cacrt, ok := (credentials)["cacrt"].(string); ok && len(cacrt) > 0 {
+		rootCAPool := x509.NewCertPool()
+		ok := rootCAPool.AppendCertsFromPEM([]byte(cacrt))
+		if !ok {
+			return nil, fmt.Errorf("Failed to create root CA pool using `cacrt`")
+		}
+
+		opts.TLSConfig = &tls.Config{
+			RootCAs:    rootCAPool,
+			ServerName: host,
+		}
+	}
+
+	client := redis.NewClient(opts)
 
 	pong, err := client.Ping().Result()
 	log.Printf("pong: %v ; err = %v\n", pong, err)
